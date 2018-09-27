@@ -1,3 +1,3 @@
 # Colin_P
 
-Dossier d'études pour de Colin pour l'UE INFMDI721
+Dossier d'études de Colin pour l'UE INFMDI721
