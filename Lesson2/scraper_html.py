@@ -18,58 +18,36 @@
 
 
 import requests
-import re
 import pandas as pd
-from bs4 import BeautifulSoup
+import datetime
+from scraper_data_fonction import *
 
-# URLs cibles
-html_reuters_raw = [requests.get("""https://www.reuters.com/finance/stocks/financial-highlights/LVMH.PA"""),
-                    requests.get("""https://www.reuters.com/finance/stocks/financial-highlights/AIR.PA"""),
-                    requests.get("""https://www.reuters.com/finance/stocks/financial-highlights/DANO.PA"""),
-                    ]
+# Création du dataframe pandas pour stockage des sorties
+columns = ['Company', 'Date', 'Sale quarter', 'Shares price', 'Shares percent', 'Shares_owned',
+           'Dividend yield company', 'Dividend yield sector', 'Dividend yield industry']
+df = pd.DataFrame(columns=columns)
 
+# Sociétés cibles
+# Possibilité de rajouter des indices selon sigle reuters
+company_list = ['LVMH.PA', 'AIR.PA', 'DANO.PA']
+square_link = 'https://www.reuters.com/finance/stocks/financial-highlights/'
 
-def html_to_soup(html_raw):
-    """ Parse html to Soup tree for BeautifulSoup
-    """
-    return BeautifulSoup(html_raw.content, "html.parser")
+# Récupération des pages HTML brutes
+# Stockage des sigles sociétés dans le df
+html_req_get_list = []
+for i, company in enumerate(company_list):
+    html_req_get_list.append(requests.get(square_link + company))
+    df.loc[i] = [company, str(datetime.date.today()), '', '', '', '', '', '', '']
 
+# Scrap des indices définis dans 'columns' et stock dans le dataframe
+for i, html in enumerate(html_req_get_list):
+    soup = html_to_soup(html)
+    df.loc[i][2] = sale_quarter_crawler(soup)
+    df.loc[i][3] = shares_price_crawler(soup)
+    df.loc[i][4] = shares_percent_crawler(soup)
+    df.loc[i][5] = shares_owned_institutions_crawler(soup)
+    df.loc[i][6] = dividend_yield_crawler(soup)[0]
+    df.loc[i][7] = dividend_yield_crawler(soup)[1]
+    df.loc[i][8] = dividend_yield_crawler(soup)[2]
 
-def sale_quarter_crawler(soup_to_crawl):
-    """ Les ventes au quartier à fin décembre 2018 (moyenne)
-    """
-    sale_quarter = soup_to_crawl.find_all('td', 'data')[1].string
-    return sale_quarter
-
-
-def shares_price_crawler(soup_to_crawl):
-    """ le prix de l'action
-    """
-    shares_price_raw = soup_to_crawl.find('span', 'valueContent').span.string
-    shares_price_clean = re.findall(r'-*\d+.?\d*', shares_price_raw)[0]
-    return shares_price_clean
-
-
-def shares_percent_crawler(soup_to_crawl):
-    """ et son % de changement au moment du crawling
-    """
-    shares_percent_raw = soup_to_crawl.find('span', 'valueContentPercent').span.string
-    shares_percent_clean = re.findall(r'[-+]\d+.?\d*', shares_percent_raw)[0]
-    return shares_percent_clean
-
-
-def shares_owned_institutions_crawler(soup_to_crawl):
-    """le % Shares Owned des investisseurs institutionels
-    """
-    shares_owned_institutions = soup_to_crawl.find(string='% Shares Owned:').next_element.next_element.string
-    return shares_owned_institutions
-
-
-def dividend_yield_crawler(soup_to_crawl):
-    """le dividend yield de la company, le secteur et de l'industrie
-    """
-    dividen_yield_company = soup_to_crawl.find(string='Dividend Yield').findNext('td').string
-    dividen_yield_sector = dividen_yield_company.findNext('td').string
-    dividen_yield_industry = dividen_yield_sector.findNext('td').string
-    return dividen_yield_company, dividen_yield_sector, dividen_yield_industry
-
+print(df)
